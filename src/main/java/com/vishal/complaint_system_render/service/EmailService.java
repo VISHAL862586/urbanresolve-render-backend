@@ -1,61 +1,70 @@
 package com.vishal.complaint_system_render.service;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Base64;
 
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import com.vishal.complaint_system_render.entity.Complaint;
 
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
-
 @Service
 public class EmailService {
 
-        @Autowired
-    private JavaMailSender mailSender;
+    @Value("${RESEND_API_KEY}")
+    private String resendApiKey;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
+    private static final String RESEND_URL = "https://api.resend.com/emails";
 
     // ==========================
     // OTP EMAIL
     // ==========================
     public void sendOtpEmail(String toEmail, String otp) {
 
-      try {
+        try {
 
-    System.out.println("Creating MimeMessage");
+            String json = """
+                    {
+                      "from": "onboarding@resend.dev",
+                      "to": ["%s"],
+                      "subject": "UrbanResolve OTP",
+                      "text": "Your UrbanResolve OTP is: %s"
+                    }
+                    """.formatted(toEmail, otp);
 
-    MimeMessage message = mailSender.createMimeMessage();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(RESEND_URL))
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
 
-    MimeMessageHelper helper = new MimeMessageHelper(message);
+            HttpResponse<String> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers.ofString()
+                    );
 
-    System.out.println("Sending From");
-        helper.setFrom(fromEmail);
+            System.out.println("Resend response status: " + response.statusCode());
+            System.out.println("Resend response body: " + response.body());
 
-    System.out.println("Sending To");
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                System.out.println("OTP EMAIL SENT");
+            } else {
+                throw new RuntimeException(
+                        "Resend email failed: " + response.body()
+                );
+            }
 
-    helper.setTo(toEmail);
-
-    helper.setSubject("OTP");
-
-    helper.setText("OTP : " + otp);
-
-    System.out.println("Calling mailSender.send()");
-
-    mailSender.send(message);
-
-    System.out.println("EMAIL SENT");
-
-} catch (Exception e) {
-    e.printStackTrace();
-}
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Failed to send OTP email", e);
+        }
     }
 
     // ==========================
@@ -66,44 +75,47 @@ public class EmailService {
             Complaint complaint
     ) throws Exception {
 
-        byte[] pdf =
-                PdfGenerator.generateComplaintPdf(complaint);
+        byte[] pdf = PdfGenerator.generateComplaintPdf(complaint);
 
-        MimeMessage message =
-                mailSender.createMimeMessage();
+        String base64Pdf = Base64.getEncoder().encodeToString(pdf);
 
-        MimeMessageHelper helper =
-                new MimeMessageHelper(message, true);
+        String json = """
+                {
+                  "from": "onboarding@resend.dev",
+                  "to": ["%s"],
+                  "subject": "Complaint Registered Successfully",
+                  "text": "Dear Citizen,\\n\\nYour complaint has been registered successfully.\\n\\nPlease find the attached PDF acknowledgement receipt.\\n\\nUrbanResolve",
+                  "attachments": [
+                    {
+                      "filename": "ComplaintReceipt.pdf",
+                      "content": "%s"
+                    }
+                  ]
+                }
+                """.formatted(toEmail, base64Pdf);
 
-        helper.setFrom(fromEmail);        
-        helper.setTo(toEmail);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(RESEND_URL))
+                .header("Authorization", "Bearer " + resendApiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
 
-        helper.setSubject(
-                "Complaint Registered Successfully"
-        );
+        HttpResponse<String> response =
+                httpClient.send(
+                        request,
+                        HttpResponse.BodyHandlers.ofString()
+                );
 
-        helper.setText(
-                """
-                Dear Citizen,
+        System.out.println("Resend PDF response status: " + response.statusCode());
+        System.out.println("Resend PDF response body: " + response.body());
 
-                Your complaint has been registered successfully.
-
-                Please find the attached PDF acknowledgement receipt.
-
-                UrbanResolve
-                """
-        );
-
-        helper.addAttachment(
-                "ComplaintReceipt.pdf",
-                new ByteArrayDataSource(
-                        pdf,
-                        "application/pdf"
-                )
-        );
-
-        mailSender.send(message);
-
-        System.out.println("PDF EMAIL SENT SUCCESSFULLY");
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+            System.out.println("PDF EMAIL SENT SUCCESSFULLY");
+        } else {
+            throw new RuntimeException(
+                    "Resend PDF email failed: " + response.body()
+            );
+        }
     }
 }
