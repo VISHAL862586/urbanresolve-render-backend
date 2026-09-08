@@ -4,6 +4,9 @@ package com.vishal.complaint_system_render.entity;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -12,7 +15,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 
@@ -40,7 +42,7 @@ public class Complaint {
     private String priority;
     private String status;
     private LocalDateTime date;
-    @Lob
+    @JdbcTypeCode(SqlTypes.BINARY)
     @JsonIgnore
     private byte[] image;
     private String imageType;
