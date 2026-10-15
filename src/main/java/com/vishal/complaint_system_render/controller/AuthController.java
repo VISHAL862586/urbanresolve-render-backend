@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -132,23 +134,33 @@ public class AuthController {
     // LOGIN
 
 
-    @PostMapping("/login")
-    public User login(@RequestBody User user, HttpSession session) {
+        @PostMapping("/login")
+        public ResponseEntity<?> login(
+                @RequestBody User user,
+                HttpSession session) {
 
-        User existingUser = repo.findByEmail(user.getEmail());
+        String email = user.getEmail() == null
+                ? ""
+                : user.getEmail().trim();
+
+        User existingUser = repo.findByEmail(email);
 
         if (existingUser == null) {
-            throw new RuntimeException("User not found");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("User not found. Please register first.");
         }
 
-        if (!existingUser.getPassword().equals(user.getPassword())) {
-                throw new RuntimeException("Invalid password");
+        if (existingUser.getPassword() == null
+                || !existingUser.getPassword().equals(user.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Invalid email or password.");
         }
 
         session.setAttribute("user", existingUser);
 
-        return existingUser;
-    }
+        return ResponseEntity.ok(existingUser);
+        }
+
         @GetMapping("/me")
         public User getCurrentUser(HttpSession session) {
 
