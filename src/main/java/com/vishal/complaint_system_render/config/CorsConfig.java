@@ -1,5 +1,5 @@
 
-package com.urbanresolve.config;
+package com.vishal.complaint_system_render.config;
 
 import java.util.List;
 import org.springframework.context.annotation.Bean;
