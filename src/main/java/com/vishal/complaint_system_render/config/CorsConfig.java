@@ -17,6 +17,7 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
+                                "https://urbanresolve-frontend.vercel.app",
                                 "https://urbanresolve-frontend-9gc4g9j6l-urban-resolve.vercel.app"
                         )
                         .allowedMethods(
